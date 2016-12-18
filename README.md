@@ -18,10 +18,7 @@ Why are not all blocks supported?
 most blocks use there param2 variable, so this variable is not available for this mod. This mod needs param2 to calulate what blocks are stable
 
 ## Bug reports and suggestions
-You can report bugs or suggest ideas on [GitHub](http://github.com/lnj2/mod_template/issues/new), in the [Minetest Forum](http://forum.minetest.net/viewtopic.php?id=15041) or just [email](mailto:example@example.com) me.
+You can report bugs or suggest ideas on [GitHub](https://github.com/LHolten/block_physics/issues/new) or in the [Minetest Forum]() 
 
 ## Links
-* [GitHub](http://github.com/lnj2/mod_template/)
-* [Minetest Forum](http://forum.minetest.net/viewtopic.php?id=15041)
-* [Website](http://lnj2.github.io/mod_template)
-* [Minetest Wiki](http://wiki.minetest.net/Mods/Mod Template/)
+* [GitHub](https://github.com/LHolten/block_physics/)
