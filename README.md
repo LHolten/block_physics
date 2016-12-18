@@ -16,7 +16,7 @@ All simple humanmade blocks have physics now, these include cobble, bricks, wood
 ## FAQ
 Why are not all blocks supported?
 
-most blocks use there param2 variable, so this variable is not available for this mod. This mod needs param2 to calulate what blocks are stable
+Most blocks use there param2 variable, so this variable is not available for this mod. This mod needs param2 to calulate which blocks are stable.
 
 ## Bug reports and suggestions
 You can report bugs or suggest ideas on [GitHub](https://github.com/LHolten/block_physics/issues/new) or in the [Minetest Forum]() 
