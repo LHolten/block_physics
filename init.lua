@@ -174,6 +174,8 @@ minetest.register_abm({
 		local compressive = minetest.registered_nodes[node.name].groups["compressive"] or 10
 		local weight = minetest.registered_nodes[node.name].groups["weight"] or 2
 		local tensile = minetest.registered_nodes[node.name].groups["tensile"] or 6
+		local nonBlocks = {air = true}
+		
 		local force = 0
 		
 		
@@ -198,7 +200,7 @@ minetest.register_abm({
 		--set varibles for force
 		
 		local under = minetest.get_node({x = pos.x, y = pos.y - 1, z = pos.z})
-		local above = minetest.get_node({x = pos.x, y = pos.y - 1, z = pos.z})
+		local above = minetest.get_node({x = pos.x, y = pos.y + 1, z = pos.z})
 		local sideF = 0
 		local underF = 0
 		local aboveF = 0
