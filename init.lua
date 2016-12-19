@@ -174,7 +174,7 @@ minetest.register_abm({
 		local compressive = minetest.registered_nodes[node.name].groups["compressive"] or 10
 		local weight = minetest.registered_nodes[node.name].groups["weight"] or 2
 		local tensile = minetest.registered_nodes[node.name].groups["tensile"] or 6
-		local nonBlocks = {air = true}
+		local nonSolids = {["air"] = true, ["fire:basic_flame"] = true, ["default:water_source"] = true, ["default:water_flowing"] = true, ["default:river_water_source"] = true, ["default:river_water_flowing"] = true, ["default:lava_source"] = true, ["default:lava_flowing"] = true}
 		
 		local force = 0
 		
@@ -209,7 +209,7 @@ minetest.register_abm({
 		
 		if (minetest.registered_nodes[under.name].groups["compressive"]) then
 			underF = math.min(under.param2 - weight, compressive)
-		elseif (under.name ~= "air") then
+		elseif (not nonSolids[under.name]) then
 			underF = compressive
 		end
 		
@@ -228,11 +228,11 @@ minetest.register_abm({
 		force = math.max(underF, sideF, aboveF)
 		
 		if (force <= 0) then
-			if (under.name ~= "air") then
+			if (not nonSolids[under.name]) then
 				for i,posn in pairs(underposes) do
 					local n = minetest.get_node(posn)
 					
-					if (n.name == "air") then
+					if (nonSolids[n.name]) then
 						minetest.set_node(pos, {name="air"})
 						minetest.add_entity(posn, "__builtin:falling_node"):get_luaentity():set_node(node)
 						break
