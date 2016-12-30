@@ -106,7 +106,7 @@ end
 
 
 local time_table = {}
-
+-- table containing all the nodes that need an update
 
 function block_physics.add_neighbors(pos)
 	local neighbors = {{x = pos.x - 1, y = pos.y, z = pos.z},{x = pos.x, y = pos.y, z = pos.z - 1},{x = pos.x + 1, y = pos.y, z = pos.z},{x = pos.x, y = pos.y, z = pos.z + 1},{x = pos.x, y = pos.y - 1, z = pos.z},{x = pos.x, y = pos.y + 1, z = pos.z}}
@@ -133,7 +133,7 @@ local function thread()
 	while true do
 		--minetest.debug("test")
 		if ((os.clock() - start) * 1000 > 1) then
-			minetest.after(0, block_physics.update_node)
+			minetest.after(0, function() minetest.debug("elapsed time: ".. tostring(block_physics.update_node() * 1000)) end)
 			coroutine.yield(os.clock() - start)
 			start = os.clock()
 		end
@@ -157,10 +157,7 @@ local function thread()
 	end
 end
 
-
-minetest.after(0, function()
-	block_physics.update_node = coroutine.wrap(thread)
-end)
+block_physics.update_node = coroutine.wrap(thread)
 
 
 
@@ -168,51 +165,34 @@ end)
 -- Global callbacks
 --
 
-local function on_placenode(p, node)
-	block_physics.add_single(p)
-	minetest.debug(string.format("elapsed time: %.2fms", block_physics.update_node() * 1000))
-end
-minetest.register_on_placenode(on_placenode)
-
 local function on_dignode(p, node)
 	block_physics.add_neighbors(p)
-	minetest.debug(string.format("elapsed time: %.2fms", block_physics.update_node() * 1000))
+	--minetest.debug("elapsed time: ".. tostring(block_physics.update_node() * 1000))
 end
 minetest.register_on_dignode(on_dignode)
 
 local function on_punchnode(p, node)
 	block_physics.add_single(p)
-	minetest.debug(string.format("elapsed time: %.2fms", block_physics.update_node() * 1000))
+	--minetest.debug("elapsed time: ".. tostring(block_physics.update_node() * 1000))
 end
 minetest.register_on_punchnode(on_punchnode)
 
---[[minetest.after(0, function()
-	for name, def in pairs(minetest.registered_nodes) do
-		t = check_type(name)
-		if (t == "physical" or t == "solid") then
-			if def.on_destruct then
-				minetest.registered_nodes[name].on_destruct_old = minetest.registered_nodes[name].on_destruct
-				
-				minetest.registered_nodes[name].on_destruct = function(pos)
-					local node = minetest.get_node_or_nil(pos)
-					minetest.debug(node.name)
-					minetest.debug(minetest.registered_nodes[node.name].description)
-					minetest.debug(minetest.registered_nodes[node.name].on_destruct_old(pos))
-					minetest.debug("triggered")
-					--update_physics(pos)
-				end
-			else
-				minetest.debug("go!")
-				minetest.registered_nodes[name].on_destruct = function(pos)
-					local node = minetest.get_node_or_nil(pos)
-					minetest.debug(node.name)
-					minetest.debug("triggered")
-					update_physics(pos)
-				end
-			end
-			minetest.debug(name)
-		end
+
+function block_physics.register_node(name, def)
+	def.on_blast = function(pos, intensity)
+		node = minetest.get_node(pos)
+		minetest.remove_node(pos)
+		block_physics.add_neighbors(pos)
+		--minetest.debug("elapsed time: ".. tostring(block_physics.update_node() * 1000))
+		return minetest.get_node_drops(node.name, "")
 	end
-	minetest.debug("hi")
---end
-)--]]
+	
+	def.after_place_node = function(pos, intensity)
+		block_physics.add_single(pos)
+		--minetest.debug("elapsed time: ".. tostring(block_physics.update_node() * 1000))
+	end
+	
+	minetest.register_node(name,def)
+end
+
+minetest.register_globalstep(function() minetest.debug("elapsed time: ".. tostring(block_physics.update_node() * 1000)) end)

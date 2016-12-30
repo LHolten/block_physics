@@ -19,6 +19,7 @@ end
 
 minetest.register_craftitem("block_physics:param2_check", {
 	description = "get param2 of node",
+	inventory_image = "param2_check.png",
 	stack_max = 1,
 	on_use = function(itemstack, user, pointed_thing)
 		if pointed_thing.type == "node" then
