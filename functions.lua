@@ -10,6 +10,8 @@ local function check_type(name)
 	
 	if (minetest.registered_nodes[name].groups["flora"]) then return "non_solid" end
 	
+	if (minetest.registered_nodes[name].groups["flammable"] == 4) then return "non_solid" end
+	
 	if (minetest.registered_nodes[name].groups["dig_immediate"] == 3) then return "non_solid" end
 	
 	return "solid"
@@ -17,6 +19,8 @@ end
 
 local function update_single(pos, node)
 	node = node or minetest.get_node_or_nil(pos)
+	if (check_type(node.name) ~= "physical") then return false end
+	
 	local shear = minetest.registered_nodes[node.name].groups["shear"] or 12
 	local compressive = minetest.registered_nodes[node.name].groups["compressive"] or 10
 	local weight = minetest.registered_nodes[node.name].groups["weight"] or 2
@@ -30,7 +34,7 @@ local function update_single(pos, node)
 	--local underposes = 	{{x = pos.x - 1, y = pos.y - 1, z = pos.z},	{x = pos.x, y = pos.y - 1, z = pos.z - 1},	{x = pos.x + 1, y = pos.y - 1, z = pos.z},	{x = pos.x, y = pos.y - 1, z = pos.z + 1}}
 	local maxy, miny, m = 0, 16, 0
 	
-	--check all sides for nodes in group shear and calculate there max and min
+	--check all horizontal sides for nodes in group shear and calculate there max and min
 	
 	for i,posn in pairs(poses) do
 		local side = minetest.get_node(posn)
@@ -100,47 +104,115 @@ local function update_single(pos, node)
 	return returnvalue
 end
 
-local function update_physics(pos)
-	local node = minetest.get_node_or_nil(pos)
-	local physical = (check_type(node.name) == "physical")
-	local check = true
+
+local time_table = {}
+
+
+function block_physics.add_neighbors(pos)
+	local neighbors = {{x = pos.x - 1, y = pos.y, z = pos.z},{x = pos.x, y = pos.y, z = pos.z - 1},{x = pos.x + 1, y = pos.y, z = pos.z},{x = pos.x, y = pos.y, z = pos.z + 1},{x = pos.x, y = pos.y - 1, z = pos.z},{x = pos.x, y = pos.y + 1, z = pos.z}}
 	
-	if (physical) then
-		check = (update_single(pos, node))
-	end
-	
-	if (check) then
-		local neighbors = {{x = pos.x - 1, y = pos.y, z = pos.z},{x = pos.x, y = pos.y, z = pos.z - 1},{x = pos.x + 1, y = pos.y, z = pos.z},{x = pos.x, y = pos.y, z = pos.z + 1},{x = pos.x, y = pos.y - 1, z = pos.z},{x = pos.x, y = pos.y + 1, z = pos.z}}
+	for i, posn in pairs(neighbors) do
+		local str = minetest.pos_to_string(posn)
 		
-		for i, posn in pairs(neighbors) do
-			n = minetest.get_node_or_nil(posn)
+		time_table[str] = true
+		--minetest.debug("added "..str)
+	end
+end
+
+function block_physics.add_single(pos)
+	local str = minetest.pos_to_string(pos)
+	time_table[str] = true
+end
+
+
+-- handling machine
+local function thread()
+	local next = next
+	local start = os.clock()
+	
+	while true do
+		--minetest.debug("test")
+		if ((os.clock() - start) * 1000 > 1) then
+			minetest.after(0, block_physics.update_node)
+			coroutine.yield(os.clock() - start)
+			start = os.clock()
+		end
+		
+		local i = next(time_table)
+		
+		if (i ~= nil) then
+			local pos = minetest.string_to_pos(i)
 			
-			if minetest.registered_nodes[n.name].groups["weight"] then
-				minetest.after(1, update_physics, posn)
+			if update_single(pos) then
+				--minetest.debug("check around "..i)
+				block_physics.add_neighbors(pos)
 			end
+			--minetest.debug("updated "..i)
+			time_table[i] = nil
+			
+		else
+			coroutine.yield(os.clock() - start)
+			start = os.clock()
 		end
 	end
 end
+
+
+minetest.after(0, function()
+	block_physics.update_node = coroutine.wrap(thread)
+end)
+
+
 
 --
 -- Global callbacks
 --
 
 local function on_placenode(p, node)
-	if (minetest.registered_nodes[node.name].groups["weight"]) then
-		minetest.after(0, update_physics, p)
-	end
+	block_physics.add_single(p)
+	minetest.debug(string.format("elapsed time: %.2fms", block_physics.update_node() * 1000))
 end
 minetest.register_on_placenode(on_placenode)
 
 local function on_dignode(p, node)
-	minetest.after(0, update_physics, p)
+	block_physics.add_neighbors(p)
+	minetest.debug(string.format("elapsed time: %.2fms", block_physics.update_node() * 1000))
 end
 minetest.register_on_dignode(on_dignode)
 
 local function on_punchnode(p, node)
-	if (minetest.registered_nodes[node.name].groups["weight"]) then
-		minetest.after(0, update_physics, p)
-	end
+	block_physics.add_single(p)
+	minetest.debug(string.format("elapsed time: %.2fms", block_physics.update_node() * 1000))
 end
 minetest.register_on_punchnode(on_punchnode)
+
+--[[minetest.after(0, function()
+	for name, def in pairs(minetest.registered_nodes) do
+		t = check_type(name)
+		if (t == "physical" or t == "solid") then
+			if def.on_destruct then
+				minetest.registered_nodes[name].on_destruct_old = minetest.registered_nodes[name].on_destruct
+				
+				minetest.registered_nodes[name].on_destruct = function(pos)
+					local node = minetest.get_node_or_nil(pos)
+					minetest.debug(node.name)
+					minetest.debug(minetest.registered_nodes[node.name].description)
+					minetest.debug(minetest.registered_nodes[node.name].on_destruct_old(pos))
+					minetest.debug("triggered")
+					--update_physics(pos)
+				end
+			else
+				minetest.debug("go!")
+				minetest.registered_nodes[name].on_destruct = function(pos)
+					local node = minetest.get_node_or_nil(pos)
+					minetest.debug(node.name)
+					minetest.debug("triggered")
+					update_physics(pos)
+				end
+			end
+			minetest.debug(name)
+		end
+	end
+	minetest.debug("hi")
+--end
+)--]]

@@ -17,6 +17,19 @@ if (minetest.get_modpath("default")) then
 end
 
 
+minetest.register_craftitem("block_physics:param2_check", {
+	description = "get param2 of node",
+	stack_max = 1,
+	on_use = function(itemstack, user, pointed_thing)
+		if pointed_thing.type == "node" then
+			local node = minetest.get_node(pointed_thing.under)
+			minetest.chat_send_player(user.get_player_name(user), tostring(node.param2))
+		end
+		return nil
+	end
+})
+
+
 
 
 

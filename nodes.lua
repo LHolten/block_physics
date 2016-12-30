@@ -6,6 +6,8 @@ minetest.register_node(":default:cobble", {
 	is_ground_content = false,
 	groups = cobble,
 	sounds = default.node_sound_stone_defaults(),
+	--after_destruct = function(pos) if minetest.get_node(pos).name == "air" then block_physics.update_physics(pos) end end,
+	--on_construct = function(pos) block_physics.update_single(pos) end
 })
 
 minetest.register_node(":default:desert_cobble", {
