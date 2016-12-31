@@ -169,17 +169,13 @@ block_physics.update_node = coroutine.wrap(thread)
 -- Global callbacks
 --
 
---[[local function on_dignode(p, node)
-	block_physics.add_neighbors(p)
-	--minetest.debug("elapsed time: ".. tostring(block_physics.update_node() * 1000))
+local function update_around_solid(p, node)
+	if check_type(node.name) == "solid" then
+		block_physics.add_neighbors(p)
+	end
 end
-minetest.register_on_dignode(on_dignode)
-
-local function on_punchnode(p, node)
-	block_physics.add_single(p)
-	--minetest.debug("elapsed time: ".. tostring(block_physics.update_node() * 1000))
-end
-minetest.register_on_punchnode(on_punchnode)--]]
+minetest.register_on_dignode(update_around_solid)
+minetest.register_on_placenode(update_around_solid)
 
 
 function block_physics.register_node(name, def)
