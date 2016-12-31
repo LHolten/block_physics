@@ -200,6 +200,8 @@ function block_physics.register_node(name, def)
 		block_physics.add_neighbors(pos)
 	end
 	
+	def.paramtype2 = "physics"
+	
 	minetest.register_node(name,def)
 end
 
