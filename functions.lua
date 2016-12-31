@@ -4,7 +4,7 @@
 local function check_type(name)
 	if (name == "air") then return "non_solid" end
 	
-	if (minetest.registered_nodes[name].groups["weight"]) then return "physical" end
+	if (minetest.registered_nodes[name].paramtype2 == "physics") then return "physical" end
 	
 	if (minetest.registered_nodes[name].groups["liquid"]) then return "non_solid" end
 	
@@ -60,6 +60,7 @@ local function update_single(pos, node)
 	
 	if (check_type(under.name) == "physical") then
 		underF = math.min(under.param2 - weight, compressive)
+		minetest.debug("check")
 	elseif (check_type(under.name) == "solid") then
 		underF = compressive
 	end
@@ -97,8 +98,8 @@ local function update_single(pos, node)
 			minetest.set_node(pos, {name="air"})
 			minetest.add_entity(pos, "__builtin:falling_node"):get_luaentity():set_node(node)
 		end
-	else
-		minetest.set_node(pos, {name=node.name, param2=force})
+	elseif returnvalue then
+		minetest.set_node(pos, {name = node.name, param2 = force})
 	end
 	
 	return returnvalue
@@ -143,10 +144,13 @@ local function thread()
 		if (i ~= nil) then
 			local pos = minetest.string_to_pos(i)
 			
-			if update_single(pos) then
+			update_single(pos)
+			
+			--[[if update_single(pos) then
 				--minetest.debug("check around "..i)
 				block_physics.add_neighbors(pos)
-			end
+			end--]]
+			
 			--minetest.debug("updated "..i)
 			time_table[i] = nil
 			
@@ -165,7 +169,7 @@ block_physics.update_node = coroutine.wrap(thread)
 -- Global callbacks
 --
 
-local function on_dignode(p, node)
+--[[local function on_dignode(p, node)
 	block_physics.add_neighbors(p)
 	--minetest.debug("elapsed time: ".. tostring(block_physics.update_node() * 1000))
 end
@@ -175,11 +179,11 @@ local function on_punchnode(p, node)
 	block_physics.add_single(p)
 	--minetest.debug("elapsed time: ".. tostring(block_physics.update_node() * 1000))
 end
-minetest.register_on_punchnode(on_punchnode)
+minetest.register_on_punchnode(on_punchnode)--]]
 
 
 function block_physics.register_node(name, def)
-	def.on_blast = function(pos, intensity)
+	--[[def.on_blast = function(pos, intensity)
 		node = minetest.get_node(pos)
 		minetest.remove_node(pos)
 		block_physics.add_neighbors(pos)
@@ -187,12 +191,21 @@ function block_physics.register_node(name, def)
 		return minetest.get_node_drops(node.name, "")
 	end
 	
-	def.after_place_node = function(pos, intensity)
+	def.after_place_node = function(pos)
 		block_physics.add_single(pos)
 		--minetest.debug("elapsed time: ".. tostring(block_physics.update_node() * 1000))
+	end--]]
+	
+	def.on_construct = function(pos)
+		block_physics.add_single(pos)
+	end
+	
+	def.after_destruct = function(pos)
+		block_physics.add_neighbors(pos)
 	end
 	
 	minetest.register_node(name,def)
 end
 
-minetest.register_globalstep(function() minetest.debug("elapsed time: ".. tostring(block_physics.update_node() * 1000)) end)
+--minetest.register_globalstep(function() minetest.debug("elapsed time: ".. tostring(block_physics.update_node() * 1000)) end)
+minetest.register_globalstep(block_physics.update_node)
