@@ -46,12 +46,11 @@ local function update_single(pos, node)
 	
 	
 	local poses = 		{{x = pos.x - 1, y = pos.y, z = pos.z},		{x = pos.x, y = pos.y, z = pos.z - 1},		{x = pos.x + 1, y = pos.y, z = pos.z},		{x = pos.x, y = pos.y, z = pos.z + 1}}
-	--local underposes = 	{{x = pos.x - 1, y = pos.y - 1, z = pos.z},	{x = pos.x, y = pos.y - 1, z = pos.z - 1},	{x = pos.x + 1, y = pos.y - 1, z = pos.z},	{x = pos.x, y = pos.y - 1, z = pos.z + 1}}
 	local maxF, m, minH	= 0, 0, 255
 	
 	
 	--check all horizontal sides for nodes and calculate there minH and maxF
-	for i,posn in pairs(poses) do
+	for i,posn in ipairs(poses) do
 		local side = minetest.get_node(posn)
 		
 		if (check_type(side.name) == "physical") then
@@ -231,17 +230,20 @@ function block_physics.register_node(name, def)
 		return minetest.get_node_drops(node.name, "")
 	end
 	
-	--[[def.after_place_node = function(pos)
+	def.after_place_node = function(pos)
 		block_physics.add_single(pos)
-	end--]]
+	end
 	
 	def.on_construct = function(pos)
-		block_physics.add_single(pos)
+		minetest.debug(minetest.get_node(pos).param1)
+		block_physics.add_neighbors(pos)
 	end
 	
 	def.after_destruct = function(pos)
+		minetest.debug(minetest.get_node(pos).param1)
 		block_physics.add_neighbors(pos)
 	end
+	
 	
 	def.paramtype2 = "physics"
 	
