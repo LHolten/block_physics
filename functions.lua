@@ -28,61 +28,99 @@ local function update_single(pos, node)
 	local returnvalue = false
 	
 	local force = node.param2
+	local hanging = node.param1
+	
+		--set varibles for force
+	
+	local under = minetest.get_node({x = pos.x, y = pos.y - 1, z = pos.z})
+	local above = minetest.get_node({x = pos.x, y = pos.y + 1, z = pos.z})
+	local sideF = 0
+	local sideH = 255
+	local underF = 0
+	local underH = 255
+	local aboveF = 0
+	local aboveH = 255
+	local newforce
+	local newhanging
+	
 	
 	
 	local poses = 		{{x = pos.x - 1, y = pos.y, z = pos.z},		{x = pos.x, y = pos.y, z = pos.z - 1},		{x = pos.x + 1, y = pos.y, z = pos.z},		{x = pos.x, y = pos.y, z = pos.z + 1}}
 	--local underposes = 	{{x = pos.x - 1, y = pos.y - 1, z = pos.z},	{x = pos.x, y = pos.y - 1, z = pos.z - 1},	{x = pos.x + 1, y = pos.y - 1, z = pos.z},	{x = pos.x, y = pos.y - 1, z = pos.z + 1}}
-	local maxy, miny, m = 0, 16, 0
+	local maxF, m, minH	= 0, 0, 255
 	
-	--check all horizontal sides for nodes in group shear and calculate there max and min
 	
+	--check all horizontal sides for nodes and calculate there minH and maxF
 	for i,posn in pairs(poses) do
 		local side = minetest.get_node(posn)
 		
 		if (check_type(side.name) == "physical") then
 			local f = side.param2
-			
-			m = m + 1
-			miny = math.min(f, miny)
-			maxy = math.max(f, maxy)
+			local h = side.param1
+			if (h ~= 0) then
+				m = m + 1
+				
+				minH = math.min(h, minH)
+				maxF = math.max(f, maxF)
+			end
 		end
 	end
 	
-	--set varibles for force
 	
-	local under = minetest.get_node({x = pos.x, y = pos.y - 1, z = pos.z})
-	local above = minetest.get_node({x = pos.x, y = pos.y + 1, z = pos.z})
-	local sideF = 0
-	local underF = 0
-	local aboveF = 0
+	--set side force
+	if (m ~= 0) then
+		--this should be done for each side..
+		sideF = math.min(maxF - weight * minH, shear)
+		sideH = minH + 1
+	end
+	
+
 	
 	--calc under force
-	
 	if (check_type(under.name) == "physical") then
 		underF = math.min(under.param2 - weight, compressive)
-		minetest.debug("check")
+		underH = 1
+		
+		--if node is bedded set sideF to maxF
+		if (m == 4) then
+			sideF = math.max(maxF, math.min(under.param2, compressive))
+			sideH = 0 --extra low to show it is fixed
+		end--]]
+		
 	elseif (check_type(under.name) == "solid") then
 		underF = compressive
+		underH = 1
 	end
 	
 	--calc above force
 	
 	if (check_type(above.name) == "physical") then
 		aboveF = math.min(above.param2 - weight, tensile)
+		aboveH = above.param1
 	end
 	
-	--calc side forces
-	
-	if (m ~= 0) then
-		sideF = math.min(maxy - weight * 2, shear)
+	if underF >= sideF and underF >= aboveF then
+		newforce = underF
+		newhanging = underH
+	elseif sideF > aboveF then
+		newforce = sideF
+		newhanging = sideH
+	else
+		newforce = aboveF
+		newhanging = aboveH
 	end
 	
-	local newforce = math.max(underF, sideF, aboveF)
-	if (force ~= newforce) then returnvalue = true end --something changed: check all surrounding blocks
+
+	if (force ~= newforce or hanging ~= newhanging) then returnvalue = true end --this will make sure the block gets updated
+	
 	force = newforce
+	hanging = newhanging
+	
 	
 	if (force <= 0) then
+		--this block is not supported properly -> try to fall
 		if (check_type(under.name) ~= "non_solid") then
+			-- block underneath is not air ->look for other directions to fall in
 			for i,posn in pairs(poses) do
 				local n = minetest.get_node(posn)
 				local posm = {x = posn.x, y = posn.y - 1, z = posn.z}
@@ -91,15 +129,17 @@ local function update_single(pos, node)
 				if ((check_type(n.name) == "non_solid") and (check_type(m.name) == "non_solid")) then
 					minetest.set_node(pos, {name="air"})
 					minetest.add_entity(posn, "__builtin:falling_node"):get_luaentity():set_node(node)
-					break
+					break -- block has fallen -> stop looking
 				end
 			end
 		else
+			--block underneath is air -> fall
 			minetest.set_node(pos, {name="air"})
 			minetest.add_entity(pos, "__builtin:falling_node"):get_luaentity():set_node(node)
 		end
 	elseif returnvalue then
-		minetest.set_node(pos, {name = node.name, param2 = force})
+		--this block is supported properly and some value has changed -> update block
+		minetest.set_node(pos, {name = node.name, param2 = force, param1 = hanging}) --this will trigger an update for the surrounding blocks
 	end
 	
 	return returnvalue
@@ -108,6 +148,7 @@ end
 
 local time_table = {}
 -- table containing all the nodes that need an update
+-- index is the position of the node
 
 function block_physics.add_neighbors(pos)
 	local neighbors = {{x = pos.x - 1, y = pos.y, z = pos.z},{x = pos.x, y = pos.y, z = pos.z - 1},{x = pos.x + 1, y = pos.y, z = pos.z},{x = pos.x, y = pos.y, z = pos.z + 1},{x = pos.x, y = pos.y - 1, z = pos.z},{x = pos.x, y = pos.y + 1, z = pos.z}}
@@ -134,7 +175,8 @@ local function thread()
 	while true do
 		--minetest.debug("test")
 		if ((os.clock() - start) * 1000 > 1) then
-			minetest.after(0, function() minetest.debug("elapsed time: ".. tostring(block_physics.update_node() * 1000)) end)
+			--has been running for long enough -> wait
+			--minetest.after(0, function() minetest.debug("elapsed time: ".. tostring(block_physics.update_node() * 1000)) end)
 			coroutine.yield(os.clock() - start)
 			start = os.clock()
 		end
@@ -155,6 +197,7 @@ local function thread()
 			time_table[i] = nil
 			
 		else
+			--all nodes have been updated -> wait
 			coroutine.yield(os.clock() - start)
 			start = os.clock()
 		end
@@ -179,17 +222,17 @@ minetest.register_on_placenode(update_around_solid)
 
 
 function block_physics.register_node(name, def)
-	--[[def.on_blast = function(pos, intensity)
+	
+	def.on_blast = function(pos, intensity)
 		node = minetest.get_node(pos)
 		minetest.remove_node(pos)
+		--add neighbors to the list
 		block_physics.add_neighbors(pos)
-		--minetest.debug("elapsed time: ".. tostring(block_physics.update_node() * 1000))
 		return minetest.get_node_drops(node.name, "")
 	end
 	
-	def.after_place_node = function(pos)
+	--[[def.after_place_node = function(pos)
 		block_physics.add_single(pos)
-		--minetest.debug("elapsed time: ".. tostring(block_physics.update_node() * 1000))
 	end--]]
 	
 	def.on_construct = function(pos)

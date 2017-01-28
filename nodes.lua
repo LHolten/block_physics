@@ -74,6 +74,22 @@ block_physics.register_node(":default:wood", {
 	sounds = default.node_sound_wood_defaults(),
 })
 
+block_physics.register_node(":default:junglewood", {
+	description = "Junglewood Planks",
+	tiles = {"default_junglewood.png"},
+	is_ground_content = false,
+	groups = wood,
+	sounds = default.node_sound_wood_defaults(),
+})
+
+block_physics.register_node(":default:pine_wood", {
+	description = "Pine Wood Planks",
+	tiles = {"default_pine_wood.png"},
+	is_ground_content = false,
+	groups = wood,
+	sounds = default.node_sound_wood_defaults(),
+})
+
 block_physics.register_node(":default:acacia_wood", {
 	description = "Acacia Wood Planks",
 	tiles = {"default_acacia_wood.png"},

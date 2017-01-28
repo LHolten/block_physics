@@ -29,6 +29,18 @@ minetest.register_craftitem("block_physics:param2_check", {
 		return nil
 	end
 })
+minetest.register_craftitem("block_physics:param1_check", {
+	description = "get param1 of node",
+	inventory_image = "param1_check.png",
+	stack_max = 1,
+	on_use = function(itemstack, user, pointed_thing)
+		if pointed_thing.type == "node" then
+			local node = minetest.get_node(pointed_thing.under)
+			minetest.chat_send_player(user.get_player_name(user), tostring(node.param1))
+		end
+		return nil
+	end
+})
 
 
 
