@@ -26,6 +26,16 @@ block_physics.register_node(":default:mossycobble", {
 	sounds = default.node_sound_stone_defaults(),
 })
 
+local brick = {cracky = 3, weight = 2, shear = 12, compressive = 22, tensile = 5}
+
+minetest.register_node(":default:brick", {
+	description = "Brick Block",
+	tiles = {"default_brick.png"},
+	is_ground_content = false,
+	groups = {cracky = 3},
+	sounds = default.node_sound_stone_defaults(),
+})
+
 local stonebrick = {cracky = 2, stone = 1, weight = 2, shear = 12, compressive = 20, tensile = 4}
 
 block_physics.register_node(":default:stonebrick", {

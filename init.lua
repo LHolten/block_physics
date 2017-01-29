@@ -14,6 +14,11 @@ dofile(modpath .. "/functions.lua")
 
 if (minetest.get_modpath("default")) then
 	dofile(modpath .. "/nodes.lua")
+	dofile(modpath .. "/decoration_nodes.lua")
+end
+
+if (minetest.get_modpath("stairs")) then
+	dofile(modpath .. "/stairs.lua")
 end
 
 

@@ -6,6 +6,10 @@ local function check_type(name)
 	
 	if (minetest.registered_nodes[name].paramtype2 == "physics") then return "physical" end
 	
+	if (minetest.registered_nodes[name].groups["deco"]) then return "deco" end
+	
+	if (minetest.registered_nodes[name].groups["attached_node"]) then return "attached_node" end
+	
 	if (minetest.registered_nodes[name].groups["liquid"]) then return "non_solid" end
 	
 	if (minetest.registered_nodes[name].groups["flora"]) then return "non_solid" end
@@ -16,6 +20,8 @@ local function check_type(name)
 	
 	return "solid"
 end
+
+
 
 local function update_single(pos, node)
 	node = node or minetest.get_node_or_nil(pos)
@@ -40,40 +46,42 @@ local function update_single(pos, node)
 	local underH = 255
 	local aboveF = 0
 	local aboveH = 255
+	local B = false
 	local newforce
 	local newhanging
 	
 	
 	
-	local poses = 		{{x = pos.x - 1, y = pos.y, z = pos.z},		{x = pos.x, y = pos.y, z = pos.z - 1},		{x = pos.x + 1, y = pos.y, z = pos.z},		{x = pos.x, y = pos.y, z = pos.z + 1}}
-	local maxF, m, minH	= 0, 0, 255
+	local poses = {{x = pos.x - 1, y = pos.y, z = pos.z}, {x = pos.x + 1, y = pos.y, z = pos.z}, {x = pos.x, y = pos.y, z = pos.z - 1}, {x = pos.x, y = pos.y, z = pos.z + 1}}
+	local minusX = minetest.get_node(poses[1])
+	local plusX = minetest.get_node(poses[2])
+	local minusZ = minetest.get_node(poses[3])
+	local plusZ = minetest.get_node(poses[4])
+	local sideNodes = {minusX, plusX, minusZ, plusZ}
+	
+
+	if (check_type(minusX.name) == "physical" and check_type(plusX.name) == "physical") then
+		B = true
+	elseif (check_type(minusZ.name) == "physical" and check_type(plusZ.name) == "physical") then
+		B = true
+	end
 	
 	
 	--check all horizontal sides for nodes and calculate there minH and maxF
-	for i,posn in ipairs(poses) do
-		local side = minetest.get_node(posn)
-		
+	for i,side in ipairs(sideNodes) do
 		if (check_type(side.name) == "physical") then
 			local f = side.param2
 			local h = side.param1
-			if (h ~= 0) then
-				m = m + 1
-				
-				minH = math.min(h, minH)
-				maxF = math.max(f, maxF)
+			
+			if B then
+				sideH = 0
+				sideF = math.max(math.min(f - weight, shear), sideF)
+			elseif (h ~= 0) then
+				sideH = math.min(h + 1, sideH)
+				sideF = math.max(math.min(f - weight * h, shear), sideF)
 			end
 		end
 	end
-	
-	
-	--set side force
-	if (m ~= 0) then
-		--this should be done for each side..
-		sideF = math.min(maxF - weight * minH, shear)
-		sideH = minH + 1
-	end
-	
-
 	
 	--calc under force
 	if (check_type(under.name) == "physical") then
@@ -81,9 +89,9 @@ local function update_single(pos, node)
 		underH = 1
 		
 		--if node is bedded set sideF to maxF
-		if (m == 4) then
-			sideF = math.max(maxF, math.min(under.param2, compressive))
-			sideH = 0 --extra low to show it is fixed
+		if (B) then
+			underF = math.min(under.param2, compressive)
+			underH = 0
 		end--]]
 		
 	elseif (check_type(under.name) == "solid") then
@@ -95,7 +103,7 @@ local function update_single(pos, node)
 	
 	if (check_type(above.name) == "physical") then
 		aboveF = math.min(above.param2 - weight, tensile)
-		aboveH = above.param1
+		aboveH = 1
 	end
 	
 	if underF >= sideF and underF >= aboveF then
@@ -120,7 +128,7 @@ local function update_single(pos, node)
 		--this block is not supported properly -> try to fall
 		if (check_type(under.name) ~= "non_solid") then
 			-- block underneath is not air ->look for other directions to fall in
-			for i,posn in pairs(poses) do
+			for i, posn in pairs(poses) do
 				local n = minetest.get_node(posn)
 				local posm = {x = posn.x, y = posn.y - 1, z = posn.z}
 				local m = minetest.get_node(posm)
@@ -144,6 +152,79 @@ local function update_single(pos, node)
 	return returnvalue
 end
 
+local function update_deco(pos, node)
+	local node = node or minetest.get_node_or_nil(pos)
+	local under = minetest.get_node({x = pos.x, y = pos.y - 1, z = pos.z})
+	local sides = {{x = pos.x - 1, y = pos.y, z = pos.z}, {x = pos.x + 1, y = pos.y, z = pos.z}, {x = pos.x, y = pos.y, z = pos.z - 1}, {x = pos.x, y = pos.y, z = pos.z + 1}}
+	local neighbors = {{x = pos.x - 1, y = pos.y, z = pos.z},{x = pos.x, y = pos.y, z = pos.z - 1},{x = pos.x + 1, y = pos.y, z = pos.z},{x = pos.x, y = pos.y, z = pos.z + 1},{x = pos.x, y = pos.y - 1, z = pos.z},{x = pos.x, y = pos.y + 1, z = pos.z}}
+	local m = 0
+	
+	for i, posn in pairs(neighbors) do
+		local nodetype = check_type(minetest.get_node(posn).name)
+		if (nodetype == "physical" or nodetype == "solid") then
+			m = m + 1
+		end
+	end
+	
+	if (m < minetest.registered_nodes[node.name].groups["deco"]) then
+		--this block is not supported properly -> try to fall
+		if (check_type(under.name) ~= "non_solid") then
+			-- block underneath is not air ->look for other directions to fall in
+			for i, posn in pairs(sides) do
+				local n = minetest.get_node(posn)
+				local posm = {x = posn.x, y = posn.y - 1, z = posn.z}
+				local m = minetest.get_node(posm)
+				
+				if ((check_type(n.name) == "non_solid") and (check_type(m.name) == "non_solid")) then
+					minetest.set_node(pos, {name="air"})
+					minetest.add_entity(posn, "__builtin:falling_node"):get_luaentity():set_node(node)
+					break -- block has fallen -> stop looking
+				end
+			end
+		else
+			--block underneath is air -> fall
+			minetest.set_node(pos, {name="air"})
+			minetest.add_entity(pos, "__builtin:falling_node"):get_luaentity():set_node(node)
+		end
+	end
+end
+
+local function check_attached_node(p, n)
+	local def = minetest.registered_nodes[n.name]
+	local d = {x = 0, y = 0, z = 0}
+	if def.paramtype2 == "wallmounted" then
+		d = minetest.wallmounted_to_dir(n.param2)
+	else
+		d.y = -1
+	end
+	local p2 = vector.add(p, d)
+	local nn = minetest.get_node(p2).name
+	local def2 = minetest.registered_nodes[nn]
+	if def2 and not def2.walkable then
+		return false
+	end
+	return true
+end
+
+local function drop_attached_node(p)
+	local nn = minetest.get_node(p).name
+	minetest.remove_node(p)
+	for _, item in ipairs(minetest.get_node_drops(nn, "")) do
+		local pos = {
+			x = p.x + math.random()/2 - 0.25,
+			y = p.y + math.random()/2 - 0.25,
+			z = p.z + math.random()/2 - 0.25,
+		}
+		minetest.add_item(pos, item)
+	end
+end
+
+local function update_attached(pos, node)
+	node = node or minetest.get_node(pos)
+	if not check_attached_node(pos, node) then
+		drop_attached_node(pos)
+	end
+end
 
 local time_table = {}
 -- table containing all the nodes that need an update
@@ -165,8 +246,10 @@ function block_physics.add_single(pos)
 	time_table[str] = true
 end
 
-
+--
 -- handling machine
+--
+
 local function thread()
 	local next = next
 	local start = os.clock()
@@ -184,8 +267,15 @@ local function thread()
 		
 		if (i ~= nil) then
 			local pos = minetest.string_to_pos(i)
+			local nodetype = check_type(minetest.get_node(pos).name)
 			
-			update_single(pos)
+			if nodetype == "physical" then
+				update_single(pos)
+			elseif nodetype == "deco" then
+				update_deco(pos)
+			elseif nodetype == "attached_node" then
+				update_attached(pos)
+			end
 			
 			--[[if update_single(pos) then
 				--minetest.debug("check around "..i)
@@ -211,17 +301,20 @@ block_physics.update_node = coroutine.wrap(thread)
 -- Global callbacks
 --
 
-local function update_around_solid(p, node)
-	if check_type(node.name) == "solid" then
+local function global_update(p, node)
+	local nodetype = check_type(node.name)
+	
+	if nodetype == "solid" then
 		block_physics.add_neighbors(p)
+	elseif nodetype == "deco" then
+		--block_physics.add_single(p)
 	end
 end
-minetest.register_on_dignode(update_around_solid)
-minetest.register_on_placenode(update_around_solid)
+minetest.register_on_dignode(global_update)
+minetest.register_on_placenode(global_update)
 
 
 function block_physics.register_node(name, def)
-	
 	def.on_blast = function(pos, intensity)
 		node = minetest.get_node(pos)
 		minetest.remove_node(pos)
@@ -230,24 +323,28 @@ function block_physics.register_node(name, def)
 		return minetest.get_node_drops(node.name, "")
 	end
 	
-	def.after_place_node = function(pos)
+	--[[def.after_place_node = function(pos)
+		block_physics.add_single(pos)
+	end]]
+	
+	def.on_construct = function(pos)
 		block_physics.add_single(pos)
 	end
 	
-	def.on_construct = function(pos)
-		minetest.debug(minetest.get_node(pos).param1)
+	def.after_destruct = function(pos, old_node)
 		block_physics.add_neighbors(pos)
 	end
-	
-	def.after_destruct = function(pos)
-		minetest.debug(minetest.get_node(pos).param1)
-		block_physics.add_neighbors(pos)
-	end
-	
 	
 	def.paramtype2 = "physics"
 	
 	minetest.register_node(name,def)
+end
+
+function block_physics.add_deco(def)
+	def.on_construct = function(pos)
+		block_physics.add_single(pos)
+	end
+	return def
 end
 
 --minetest.register_globalstep(function() minetest.debug("elapsed time: ".. tostring(block_physics.update_node() * 1000)) end)
