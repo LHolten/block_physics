@@ -24,8 +24,9 @@ end
 
 
 local function update_single(pos, node)
-	node = node or minetest.get_node_or_nil(pos)
+	local node = node or minetest.get_node_or_nil(pos)
 	if (check_type(node.name) ~= "physical") then return false end
+
 	
 	local shear = minetest.registered_nodes[node.name].groups["shear"] or 12
 	local compressive = minetest.registered_nodes[node.name].groups["compressive"] or 10
@@ -46,67 +47,61 @@ local function update_single(pos, node)
 	local underH = 255
 	local aboveF = 0
 	local aboveH = 255
-	local B = false
 	local newforce
 	local newhanging
 	
+	-- very important parameters
 	
+	local factor = 6
+	local B = 4
 	
-	local poses = {{x = pos.x - 1, y = pos.y, z = pos.z}, {x = pos.x + 1, y = pos.y, z = pos.z}, {x = pos.x, y = pos.y, z = pos.z - 1}, {x = pos.x, y = pos.y, z = pos.z + 1}}
-	local minusX = minetest.get_node(poses[1])
-	local plusX = minetest.get_node(poses[2])
-	local minusZ = minetest.get_node(poses[3])
-	local plusZ = minetest.get_node(poses[4])
-	local sideNodes = {minusX, plusX, minusZ, plusZ}
+	local horizontalSides = {{x = pos.x - 1, y = pos.y, z = pos.z}, {x = pos.x + 1, y = pos.y, z = pos.z}, {x = pos.x, y = pos.y, z = pos.z - 1}, {x = pos.x, y = pos.y, z = pos.z + 1}}
+	local minusX = minetest.get_node(horizontalSides[1])
+	local plusX = minetest.get_node(horizontalSides[2])
+	local minusZ = minetest.get_node(horizontalSides[3])
+	local plusZ = minetest.get_node(horizontalSides[4])
 	
 
 	if (check_type(minusX.name) == "physical" and check_type(plusX.name) == "physical") then
-		B = true
-	elseif (check_type(minusZ.name) == "physical" and check_type(plusZ.name) == "physical") then
-		B = true
+		B = B - 1
+	end
+	if (check_type(minusZ.name) == "physical" and check_type(plusZ.name) == "physical") then
+		B = B - 1
+	end
+	if ((check_type(under.name) == "physical" or check_type(under.name) == "solid") and check_type(above.name) == "physical") then
+		B = B - 1
 	end
 	
-	
 	--check all horizontal sides for nodes and calculate there minH and maxF
-	for i,side in ipairs(sideNodes) do
+	for _, side in ipairs({minusX, plusX, minusZ, plusZ}) do
 		if (check_type(side.name) == "physical") then
 			local f = side.param2
 			local h = side.param1
 			
-			if B then
-				sideH = 0
-				sideF = math.max(math.min(f - weight, shear), sideF)
-			elseif (h ~= 0) then
-				sideH = math.min(h + 1, sideH)
-				sideF = math.max(math.min(f - weight * h, shear), sideF)
-			end
+			sideH = math.min(h + B, sideH)
+			sideF = math.max(math.min(f - weight * (h + B), shear * (factor - B)), sideF)
 		end
 	end
 	
 	--calc under force
 	if (check_type(under.name) == "physical") then
-		underF = math.min(under.param2 - weight, compressive)
-		underH = 1
-		
-		--if node is bedded set sideF to maxF
-		if (B) then
-			underF = math.min(under.param2, compressive)
-			underH = 0
-		end--]]
+
+		underF = math.min(under.param2 - weight * B, compressive * (factor - B))
+		underH = B
 		
 	elseif (check_type(under.name) == "solid") then
-		underF = compressive
-		underH = 1
+		underF = compressive * (factor - B)
+		underH = B
 	end
 	
 	--calc above force
 	
 	if (check_type(above.name) == "physical") then
-		aboveF = math.min(above.param2 - weight, tensile)
-		aboveH = 1
+		aboveF = math.min(above.param2 - weight * B, tensile * (factor - B))
+		aboveH = B
 	end
 	
-	if underF >= sideF and underF >= aboveF then
+	if underF / underH >= sideF / sideH and underF /underH >= aboveF / aboveH then
 		newforce = underF
 		newhanging = underH
 	elseif sideF > aboveF then
@@ -128,7 +123,7 @@ local function update_single(pos, node)
 		--this block is not supported properly -> try to fall
 		if (check_type(under.name) ~= "non_solid") then
 			-- block underneath is not air ->look for other directions to fall in
-			for i, posn in pairs(poses) do
+			for i, posn in pairs(horizontalSides) do
 				local n = minetest.get_node(posn)
 				local posm = {x = posn.x, y = posn.y - 1, z = posn.z}
 				local m = minetest.get_node(posm)
@@ -256,9 +251,10 @@ local function thread()
 	
 	while true do
 		--minetest.debug("test")
-		if ((os.clock() - start) * 1000 > 1) then
+		if ((os.clock() - start) * 1000 > 0.1) then
 			--has been running for long enough -> wait
 			--minetest.after(0, function() minetest.debug("elapsed time: ".. tostring(block_physics.update_node() * 1000)) end)
+			--minetest.debug("processing")
 			coroutine.yield(os.clock() - start)
 			start = os.clock()
 		end
