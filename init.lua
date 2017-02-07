@@ -11,6 +11,8 @@ local modnames = minetest.get_modnames()
 -- Load files
 
 dofile(modpath .. "/functions.lua")
+dofile(modpath .. "/core.lua")
+dofile(modpath .. "/handlers.lua")
 
 if (minetest.get_modpath("default")) then
 	dofile(modpath .. "/nodes.lua")
