@@ -32,7 +32,7 @@ minetest.register_node(":default:brick", block_physics.add_physical({
 	description = "Brick Block",
 	tiles = {"default_brick.png"},
 	is_ground_content = false,
-	groups = {cracky = 3},
+	groups = brick,
 	sounds = default.node_sound_stone_defaults(),
 }))
 

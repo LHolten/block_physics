@@ -10,6 +10,8 @@ block_physics.check_type = function(name)
 	
 	if (minetest.registered_nodes[name].groups["attached_node"]) then return "attached_node" end
 	
+	if (minetest.registered_nodes[name].paramtype2 == "wallmounted") then return "attached_node" end
+	
 	if (minetest.registered_nodes[name].groups["liquid"]) then return "non_solid" end
 	
 	if (minetest.registered_nodes[name].groups["flora"]) then return "non_solid" end
@@ -26,15 +28,23 @@ end
 -- Global callbacks
 --
 
-local function global_update(p, node)
+local function global_dignode(p, node)
 	local nodetype = block_physics.check_type(node.name)
 	
-	if nodetype == "solid" then
+	if nodetype == "solid" or nodetype == "attached_node" then
 		block_physics.add_neighbors(p)
 	end
 end
-minetest.register_on_dignode(global_update)
-minetest.register_on_placenode(global_update)
+
+local function global_placenode(p, node)
+	local nodetype = block_physics.check_type(node.name)
+	
+	if nodetype == "solid" or nodetype == "attached_node" then
+		block_physics.add_single(p)
+	end
+end
+minetest.register_on_dignode(global_dignode)
+minetest.register_on_placenode(global_placenode)
 
 
 function block_physics.add_physical( def)
@@ -93,6 +103,7 @@ function block_physics.add_deco(def)
 	local after_destruct = def.after_destruct
 	def.after_destruct = function(pos, old_node)
 		block_physics.add_neighbors(pos)
+		minetest.debug("deco updating")
 		
 		if after_destruct then
 			after_destruct(pos, old_node)
@@ -104,7 +115,7 @@ function block_physics.add_deco(def)
 	return def
 end
 
-block_physics.drop_node = function(pos, node)
+function block_physics.drop_node(pos, node)
 	local under = minetest.get_node({x = pos.x, y = pos.y - 1, z = pos.z})
 	local horizontalSides = {{x = pos.x - 1, y = pos.y, z = pos.z}, {x = pos.x + 1, y = pos.y, z = pos.z}, {x = pos.x, y = pos.y, z = pos.z - 1}, {x = pos.x, y = pos.y, z = pos.z + 1}}
 	
@@ -118,12 +129,14 @@ block_physics.drop_node = function(pos, node)
 			if ((block_physics.check_type(n.name) == "non_solid") and (block_physics.check_type(m.name) == "non_solid")) then
 				minetest.set_node(pos, {name="air"})
 				minetest.add_entity(posn, "__builtin:falling_node"):get_luaentity():set_node(node)
-				break -- block has fallen -> stop looking
+				return true -- block has fallen -> stop looking
 			end
 		end
 	else
 		--block underneath is air -> fall
 		minetest.set_node(pos, {name="air"})
 		minetest.add_entity(pos, "__builtin:falling_node"):get_luaentity():set_node(node)
+		return true
 	end
+	return false
 end

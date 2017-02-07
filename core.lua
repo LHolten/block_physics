@@ -63,7 +63,7 @@ block_physics.update_node = coroutine.wrap(thread)
 --minetest.register_globalstep(function() minetest.debug("elapsed time: ".. tostring(block_physics.update_node() * 1000)) end)
 minetest.register_globalstep(block_physics.update_node)
 
-block_physics.register_handler = function(nodetype, handler)
+function block_physics.register_handler(nodetype, handler)
 	handlers[nodetype] = handler
 	minetest.debug("handler registered for "..nodetype)
 end

@@ -6,8 +6,7 @@
 
 function stairs.register_stair(subname, recipeitem, groups, images, description, sounds)
 	groups.stair = 1
-	groups.deco = 1
-	minetest.register_node(":stairs:stair_" .. subname, {
+	minetest.register_node(":stairs:stair_" .. subname, block_physics.add_deco({
 		description = description,
 		drawtype = "mesh",
 		mesh = "stairs_stair.obj",
@@ -64,7 +63,7 @@ function stairs.register_stair(subname, recipeitem, groups, images, description,
 		on_construct = function(pos)
 			block_physics.add_single(pos)
 		end,
-	})
+	}))
 end
 
 
@@ -73,8 +72,7 @@ end
 
 function stairs.register_slab(subname, recipeitem, groups, images, description, sounds)
 	groups.slab = 1
-	groups.deco = 1
-	minetest.register_node(":stairs:slab_" .. subname, {
+	minetest.register_node(":stairs:slab_" .. subname, block_physics.add_deco({
 		description = description,
 		drawtype = "nodebox",
 		tiles = images,
@@ -169,10 +167,7 @@ function stairs.register_slab(subname, recipeitem, groups, images, description, 
 
 			return minetest.item_place(itemstack, placer, pointed_thing, param2)
 		end,
-		on_construct = function(pos)
-			block_physics.add_single(pos)
-		end,
-	})
+	}))
 end
 
 

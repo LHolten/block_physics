@@ -100,8 +100,9 @@ local function update_physical(pos, node)
 	
 	if (force <= 0) then
 		--this block is not supported properly -> try to fall
-		block_physics.drop_node(pos, node)
-		
+		if not block_physics.drop_node(pos, node) then
+			minetest.set_node(pos, {name = node.name, param2 = 0, param1 = 255}) --make sure nobody will depend on this block 
+		end
 	elseif returnvalue then
 		--this block is supported properly but some value has changed -> update block
 		minetest.set_node(pos, {name = node.name, param2 = force, param1 = hanging}) --this will trigger an update for the surrounding blocks
@@ -124,8 +125,9 @@ local function update_deco(pos, node)
 	local m = 0
 	
 	for i, posn in pairs(neighbors) do
-		local nodetype = block_physics.check_type(minetest.get_node(posn).name)
-		if (nodetype == "physical" or nodetype == "solid") then
+		local n = minetest.get_node(posn)
+		local nodetype = block_physics.check_type(n.name)
+		if (nodetype == "solid" or (nodetype == "physical" and n.param1 ~= 255)) then
 			m = m + 1
 		end
 	end
@@ -152,11 +154,11 @@ local function check_attached_node(p, n)
 	end
 	local p2 = vector.add(p, d)
 	local nn = minetest.get_node(p2).name
-	local def2 = minetest.registered_nodes[nn]
-	if def2 and not def2.walkable then
-		return false
+	local ntype = block_physics.check_type(nn)
+	if ntype == "physical" or ntype == "solid" then
+		return true
 	end
-	return true
+	return false
 end
 
 local function drop_attached_node(p)
