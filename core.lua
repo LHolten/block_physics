@@ -67,3 +67,7 @@ function block_physics.register_handler(nodetype, handler)
 	handlers[nodetype] = handler
 	minetest.debug("handler registered for "..nodetype)
 end
+
+function block_physics.get_handler(nodetype)
+	return handlers[nodetype]
+end

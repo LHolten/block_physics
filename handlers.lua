@@ -11,6 +11,11 @@ local function update_physical(pos, node)
 	local compressive = minetest.registered_nodes[node.name].groups["compressive"] or 10
 	local weight = minetest.registered_nodes[node.name].groups["weight"] or 2
 	local tensile = minetest.registered_nodes[node.name].groups["tensile"] or 6
+	
+	shear = shear * 4
+	compressive = compressive * 4
+	tensile = tensile * 4
+	
 	local returnvalue = false
 	
 	local force = node.param2
@@ -18,8 +23,7 @@ local function update_physical(pos, node)
 	
 		--set varibles for force
 	
-	local under = minetest.get_node({x = pos.x, y = pos.y - 1, z = pos.z})
-	local above = minetest.get_node({x = pos.x, y = pos.y + 1, z = pos.z})
+
 	local sideF = 0
 	local sideH = 255
 	local underF = 0
@@ -34,11 +38,12 @@ local function update_physical(pos, node)
 	local factor = 6
 	local B = 4
 	
-	local horizontalSides = {{x = pos.x - 1, y = pos.y, z = pos.z}, {x = pos.x + 1, y = pos.y, z = pos.z}, {x = pos.x, y = pos.y, z = pos.z - 1}, {x = pos.x, y = pos.y, z = pos.z + 1}}
-	local minusX = minetest.get_node(horizontalSides[1])
-	local plusX = minetest.get_node(horizontalSides[2])
-	local minusZ = minetest.get_node(horizontalSides[3])
-	local plusZ = minetest.get_node(horizontalSides[4])
+	local under = minetest.get_node(vector.add(pos, vector.new(0, -1, 0)))
+	local above = minetest.get_node(vector.add(pos, vector.new(0, 1, 0)))
+	local minusX = minetest.get_node(vector.add(pos, vector.new(-1, 0, 0)))
+	local plusX = minetest.get_node(vector.add(pos, vector.new(1, 0, 0)))
+	local minusZ = minetest.get_node(vector.add(pos, vector.new(0, 0, -1)))
+	local plusZ = minetest.get_node(vector.add(pos, vector.new(0, 0, 1)))
 	
 
 	if (block_physics.check_type(minusX.name) == "physical" and block_physics.check_type(plusX.name) == "physical") then
@@ -54,33 +59,34 @@ local function update_physical(pos, node)
 	--check all horizontal sides for nodes and calculate there minH and maxF
 	for _, side in ipairs({minusX, plusX, minusZ, plusZ}) do
 		if (block_physics.check_type(side.name) == "physical") then
-			local f = side.param2
-			local h = side.param1
+			local H = side.param1 + B
+			local F = math.min(side.param2 - weight * H, shear)
 			
-			sideH = math.min(h + B, sideH)
-			sideF = math.max(math.min(f - weight * (h + B), shear * (factor - B)), sideF)
+			if F > sideF or (F == sideF and H > sideH) then
+				sideH = H
+				sideF = F
+			end
 		end
 	end
 	
 	--calc under force
 	if (block_physics.check_type(under.name) == "physical") then
-
-		underF = math.min(under.param2 - weight * B, compressive * (factor - B))
+		underF = math.min(under.param2 - weight * B, compressive)
 		underH = B
 		
 	elseif (block_physics.check_type(under.name) == "solid") then
-		underF = compressive * (factor - B)
+		underF = compressive
 		underH = B
 	end
 	
 	--calc above force
 	
 	if (block_physics.check_type(above.name) == "physical") then
-		aboveF = math.min(above.param2 - weight * B, tensile * (factor - B))
+		aboveF = math.min(above.param2 - weight * B, tensile)
 		aboveH = B
 	end
 	
-	if underF / underH >= sideF / sideH and underF /underH >= aboveF / aboveH then
+	if underF >= sideF and underF >= aboveF then
 		newforce = underF
 		newhanging = underH
 	elseif sideF > aboveF then

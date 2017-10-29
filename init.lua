@@ -1,4 +1,4 @@
--- mods/modname/init.lua
+-- mods/block_physics/init.lua
 -- =====================
 -- See LICENSE.txt for licensing and README.md for other information.
 

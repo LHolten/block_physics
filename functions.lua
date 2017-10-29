@@ -2,8 +2,11 @@
 
 
 block_physics.check_type = function(name)
+	if not name then return "non_solid" end
+	
 	if (name == "air") then return "non_solid" end
 	
+	minetest.debug(dump(minetest.registered_nodes[name]))
 	if (minetest.registered_nodes[name].paramtype2 == "physics") then return "physical" end
 	
 	if (minetest.registered_nodes[name].groups["deco"]) then return "deco" end
@@ -28,57 +31,73 @@ end
 -- Global callbacks
 --
 
-local function global_dignode(p, node)
-	local nodetype = block_physics.check_type(node.name)
+-- local function global_dignode(p, node)
+	-- local nodetype = block_physics.check_type(node.name)
 	
-	if nodetype == "solid" or nodetype == "attached_node" then
-		block_physics.add_neighbors(p)
-	end
-end
+	-- if nodetype == "solid" or nodetype == "attached_node" then
+		-- block_physics.add_neighbors(p)
+	-- end
+-- end
 
-local function global_placenode(p, node)
-	local nodetype = block_physics.check_type(node.name)
+-- local function global_placenode(p, node)
+	-- local nodetype = block_physics.check_type(node.name)
 	
-	if nodetype == "solid" or nodetype == "attached_node" then
-		block_physics.add_single(p)
-	end
-end
-minetest.register_on_dignode(global_dignode)
-minetest.register_on_placenode(global_placenode)
+	-- if nodetype == "solid" or nodetype == "attached_node" then
+		-- block_physics.add_single(p)
+	-- end
+-- end
+-- minetest.register_on_dignode(global_dignode)
+-- minetest.register_on_placenode(global_placenode)
 
 
-function block_physics.add_physical( def)
-	def.on_blast = function(pos, intensity)
-		local node = minetest.get_node(pos)
-		minetest.remove_node(pos)
-		
-		--add neighbors to the list
-		block_physics.add_neighbors(pos)
-		return minetest.get_node_drops(node.name, "")
-	end
+function block_physics.add_physical(name, groups)
+	local def = minetest.registered_nodes[name]
+	local on_construct
+	local after_destruct
+	local on_physics
 	
-	local on_construct = def.on_construct
-	def.on_construct = function(pos)
-		block_physics.add_single(pos)
-		
-		if on_construct then
-			on_construct(pos)
+	if def.on_construct then
+		on_construct = function(pos)
+			block_physics.add_single(pos)
+			def.on_construct(pos)
 		end
+	else
+		on_construct = block_physics.add_single
 	end
 	
-	local after_destruct = def.after_destruct
-	def.after_destruct = function(pos, old_node)
-		block_physics.add_neighbors(pos)
-		
-		if after_destruct then
-			after_destruct(pos, old_node)
+	if def.after_destruct then
+		after_destruct = function(pos)
+			block_physics.add_neighbors(pos)
+			def.after_destruct(pos)
 		end
+	else
+		after_destruct = block_physics.add_neighbors
 	end
 	
-	def.paramtype2 = "physics"
-	def.paramtype = "physics"
 	
-	return def
+	new_def = {
+		description = def.description,
+		tiles = def.tiles,
+		is_ground_content = def.is_ground_content,
+		groups = groups,
+		sounds = def.sounds,
+		
+		on_blast = function(pos, intensity)
+			local node = minetest.get_node(pos)
+			minetest.remove_node(pos)
+			
+			--add neighbors to the list
+			block_physics.add_neighbors(pos)
+			return minetest.get_node_drops(node.name, "")
+		end,
+		on_construct = on_construct,
+		after_destruct = after_destruct,
+		on_physics = on_physics,
+		paramtype2 = "physics",
+		paramtype = "physics"
+	}
+	
+	minetest.register_node(":" .. name, new_def)
 end
 
 function block_physics.add_deco(def)
@@ -108,6 +127,9 @@ function block_physics.add_deco(def)
 		if after_destruct then
 			after_destruct(pos, old_node)
 		end
+	end
+	
+	def.on_physics = function(pos)
 	end
 	
 	def.groups.deco = 1
