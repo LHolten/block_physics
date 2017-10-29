@@ -33,6 +33,7 @@ local function thread()
 			--has been running for long enough -> wait
 			--minetest.after(0, function() minetest.debug("elapsed time: ".. tostring(block_physics.update_node() * 1000)) end)
 			--minetest.debug("processing")
+			block_physics.isProcessing = true
 			coroutine.yield(os.clock() - start)
 			start = os.clock()
 		end
@@ -52,6 +53,7 @@ local function thread()
 			
 		else
 			--all nodes have been updated -> wait
+			block_physics.isProcessing = false
 			coroutine.yield(os.clock() - start)
 			start = os.clock()
 		end

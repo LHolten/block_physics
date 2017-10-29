@@ -74,6 +74,19 @@ function block_physics.add_physical(name, groups)
 		after_destruct = block_physics.add_neighbors
 	end
 	
+	if def.on_blast then
+		on_blast = function(pos, intensity)
+			block_physics.add_neighbors(pos)
+			return def.on_blast(pos, intensity)
+		end
+	else
+		on_blast = function(pos, intensity)
+			block_physics.add_neighbors(pos)
+			
+			minetest.set_node(pos, {name="air"})
+			return minetest.get_node_drops(minetest.get_node(pos).name, "")
+		end
+	end
 	
 	new_def = {
 		description = def.description,
@@ -81,15 +94,7 @@ function block_physics.add_physical(name, groups)
 		is_ground_content = def.is_ground_content,
 		groups = groups,
 		sounds = def.sounds,
-		
-		on_blast = function(pos, intensity)
-			local node = minetest.get_node(pos)
-			minetest.remove_node(pos)
-			
-			--add neighbors to the list
-			block_physics.add_neighbors(pos)
-			return minetest.get_node_drops(node.name, "")
-		end,
+		on_blast = on_blast,
 		on_construct = on_construct,
 		after_destruct = after_destruct,
 		on_physics = on_physics,
@@ -101,36 +106,46 @@ function block_physics.add_physical(name, groups)
 end
 
 function block_physics.add_deco(def)
-	def.on_blast = function(pos, intensity)
-		local node = minetest.get_node(pos)
-		minetest.remove_node(pos)
-		
-		--add neighbors to the list
-		block_physics.add_neighbors(pos)
-		return minetest.get_node_drops(node.name, "")
+	local on_construct
+	local after_destruct
+	local on_physics
+	local on_blast
+	
+	if def.on_construct then
+		on_construct = function(pos)
+			block_physics.add_single(pos)
+			def.on_construct(pos)
+		end
+	else
+		on_construct = block_physics.add_single
 	end
 	
-	local on_construct = def.on_construct
-	def.on_construct = function(pos)
-		block_physics.add_single(pos)
-		
-		if on_construct then
-			on_construct(pos)
+	if def.after_destruct then
+		after_destruct = function(pos)
+			block_physics.add_neighbors(pos)
+			def.after_destruct(pos)
+		end
+	else
+		after_destruct = block_physics.add_neighbors
+	end
+	
+	if def.on_blast then
+		on_blast = function(pos, intensity)
+			block_physics.add_neighbors(pos)
+			return def.on_blast(pos, intensity)
+		end
+	else
+		on_blast = function(pos, intensity)
+			block_physics.add_neighbors(pos)
+			
+			minetest.set_node(pos, {name="air"})
+			return minetest.get_node_drops(minetest.get_node(pos).name, "")
 		end
 	end
 	
-	local after_destruct = def.after_destruct
-	def.after_destruct = function(pos, old_node)
-		block_physics.add_neighbors(pos)
-		minetest.debug("deco updating")
-		
-		if after_destruct then
-			after_destruct(pos, old_node)
-		end
-	end
-	
-	def.on_physics = function(pos)
-	end
+	def.on_construct = on_construct
+	def.after_destruct = after_destruct
+	def.on_blast = on_blast
 	
 	def.groups.deco = 1
 	
@@ -139,11 +154,13 @@ end
 
 function block_physics.drop_node(pos, node)
 	local under = minetest.get_node({x = pos.x, y = pos.y - 1, z = pos.z})
-	local horizontalSides = {{x = pos.x - 1, y = pos.y, z = pos.z}, {x = pos.x + 1, y = pos.y, z = pos.z}, {x = pos.x, y = pos.y, z = pos.z - 1}, {x = pos.x, y = pos.y, z = pos.z + 1}}
+	local horizontalSides = {[0] = {x = pos.x - 1, y = pos.y, z = pos.z}, {x = pos.x + 1, y = pos.y, z = pos.z}, {x = pos.x, y = pos.y, z = pos.z - 1}, {x = pos.x, y = pos.y, z = pos.z + 1}}
 	
 	if (block_physics.check_type(under.name) ~= "non_solid") then
 		-- block underneath is not air ->look for other directions to fall in
-		for i, posn in pairs(horizontalSides) do
+		d = math.random(0, 3)
+		for i = 0, 3 do
+			local posn = horizontalSides[block_physics.bxor(i, d)]
 			local n = minetest.get_node(posn)
 			local posm = {x = posn.x, y = posn.y - 1, z = posn.z}
 			local m = minetest.get_node(posm)
@@ -156,9 +173,24 @@ function block_physics.drop_node(pos, node)
 		end
 	else
 		--block underneath is air -> fall
-		minetest.set_node(pos, {name="air"})
+		minetest.set_node(pos, {name = "air"})
 		minetest.add_entity(pos, "__builtin:falling_node"):get_luaentity():set_node(node)
 		return true
 	end
 	return false
+end
+
+local floor = math.floor
+function block_physics.bxor(a,b)
+	local r = 0
+	for i = 0, 31 do
+		local x = a / 2 + b / 2
+		if x ~= floor (x) then
+			r = r + 2^i
+		end
+		a = floor (a / 2)
+		b = floor (b / 2)
+		if a == 0 and b == 0 then return r end
+	end
+	return r
 end

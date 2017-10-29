@@ -33,6 +33,9 @@ minetest.register_craftitem("block_physics:param2_check", {
 			local node = minetest.get_node(pointed_thing.under)
 			minetest.chat_send_player(user.get_player_name(user), tostring(node.param2))
 		end
+		if block_physics.isProcessing then
+			minetest.chat_send_player(user.get_player_name(user), "processing...")
+		end
 		return nil
 	end
 })
@@ -44,6 +47,9 @@ minetest.register_craftitem("block_physics:param1_check", {
 		if pointed_thing.type == "node" then
 			local node = minetest.get_node(pointed_thing.under)
 			minetest.chat_send_player(user.get_player_name(user), tostring(node.param1))
+		end
+		if block_physics.isProcessing then
+			minetest.chat_send_player(user.get_player_name(user), "processing...")
 		end
 		return nil
 	end
