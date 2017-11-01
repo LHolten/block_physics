@@ -50,11 +50,25 @@ end
 -- minetest.register_on_placenode(global_placenode)
 
 
-function block_physics.add_physical(name, groups)
+function block_physics.add_physical(name, physics, newGroups)
+	if name == nil or physics == nil then return false end
 	local def = minetest.registered_nodes[name]
+	
 	local on_construct
 	local after_destruct
 	local on_physics
+	local paramtype = def.paramtype
+	local paramtype2 = def.paramtype2
+	local groups = def.groups
+	newGroups = newGroups or {}
+	
+	if physics == "physical" then
+		paramtype = "physics"
+		paramtype2 = "physics"
+	elseif physics == "deco" then
+		groups.deco = 1
+	end
+	
 	
 	if def.on_construct then
 		on_construct = function(pos)
@@ -65,6 +79,7 @@ function block_physics.add_physical(name, groups)
 		on_construct = block_physics.add_single
 	end
 	
+	
 	if def.after_destruct then
 		after_destruct = function(pos)
 			block_physics.add_neighbors(pos)
@@ -73,6 +88,7 @@ function block_physics.add_physical(name, groups)
 	else
 		after_destruct = block_physics.add_neighbors
 	end
+	
 	
 	if def.on_blast then
 		on_blast = function(pos, intensity)
@@ -87,6 +103,10 @@ function block_physics.add_physical(name, groups)
 			return minetest.get_node_drops(minetest.get_node(pos).name, "")
 		end
 	end
+	
+	
+	for k,v in pairs(newGroups) do groups[k] = v end
+	
 	
 	new_def = {
 		description = def.description,
@@ -98,59 +118,13 @@ function block_physics.add_physical(name, groups)
 		on_construct = on_construct,
 		after_destruct = after_destruct,
 		on_physics = on_physics,
-		paramtype2 = "physics",
-		paramtype = "physics"
+		paramtype2 = paramtype2,
+		paramtype = paramtype
 	}
 	
 	minetest.register_node(":" .. name, new_def)
 end
 
-function block_physics.add_deco(def)
-	local on_construct
-	local after_destruct
-	local on_physics
-	local on_blast
-	
-	if def.on_construct then
-		on_construct = function(pos)
-			block_physics.add_single(pos)
-			def.on_construct(pos)
-		end
-	else
-		on_construct = block_physics.add_single
-	end
-	
-	if def.after_destruct then
-		after_destruct = function(pos)
-			block_physics.add_neighbors(pos)
-			def.after_destruct(pos)
-		end
-	else
-		after_destruct = block_physics.add_neighbors
-	end
-	
-	if def.on_blast then
-		on_blast = function(pos, intensity)
-			block_physics.add_neighbors(pos)
-			return def.on_blast(pos, intensity)
-		end
-	else
-		on_blast = function(pos, intensity)
-			block_physics.add_neighbors(pos)
-			
-			minetest.set_node(pos, {name="air"})
-			return minetest.get_node_drops(minetest.get_node(pos).name, "")
-		end
-	end
-	
-	def.on_construct = on_construct
-	def.after_destruct = after_destruct
-	def.on_blast = on_blast
-	
-	def.groups.deco = 1
-	
-	return def
-end
 
 function block_physics.drop_node(pos, node)
 	local under = minetest.get_node({x = pos.x, y = pos.y - 1, z = pos.z})
